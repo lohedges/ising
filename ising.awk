@@ -160,7 +160,7 @@ function main() {
 
 	# print simulation info (parameter values, etc.)
 	printf("Starting Ising simulation...\n")
-	printf("width = %3d\n", width)
+	printf("width = %d\n", width)
 	printf("temperature = %5.4f\n", temperature)
 	printf("J = %5.4f\n", J)
 	printf("h = %5.4f\n", h)
@@ -268,21 +268,21 @@ function save_lattice(  i) {
 }
 
 # Return one of the four neighbors of lattice site "s"
-function get_neighbour(s, n,  x, y) {
+function get_neighbor(s, n,  x, y) {
 	y = int(s/width)
 	x = s - width*y
 
 	if (n == 0) return (x - 1 + width)%width + y*width
-	if (n == 1) return (x + 1 + width)%width + y*width
+	if (n == 1) return (x + 1)%width + y*width
 	if (n == 2) return x + width*((y - 1 + width)%width)
-	if (n == 3) return x + width*((y + 1 + width)%width)
+	if (n == 3) return x + width*((y + 1)%width)
 }
 
 # Compute and return the energy of lattice site "s"
 function get_energy(s,  i, e) {
 	e -= h*lattice[s]
 	for (i=0;i<4;i++) {
-		e -= J*lattice[s]*lattice[get_neighbour(s,i)]
+		e -= J*lattice[s]*lattice[get_neighbor(s,i)]
 	}
 	return e
 }
@@ -292,7 +292,7 @@ function get_total_energy(  i, j, e) {
 	for (i=0;i<sites;i++) {
 		e -= h*lattice[i]
 		for (j=0;j<4;j++) {
-			e -= J*lattice[i]*lattice[get_neighbour(i,j)]
+			e -= J*lattice[i]*lattice[get_neighbor(i,j)]
 		}
 	}
 	return 0.5*e
