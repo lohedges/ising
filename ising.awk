@@ -40,8 +40,13 @@
 # l=, logfile=
 #			File name for logging.
 
-# set up defaults
+# Since there are no files to process everything is done within
+# the begin action. The order of operation is as follows:
+#	1) initialize defaults
+#	2) parse any command-line arguments
+#	3) execute main Ising model simulation
 BEGIN {
+	# set defaults
 	width=60
 	sites=width*width
 	temperature=2.269
@@ -53,12 +58,18 @@ BEGIN {
 	report_interval=100*sites
 	log_file="report.txt"
 	restart_file="restart.txt"
+
+	# seed random number generator
 	srand()
+
+	# parse arguments from command-line
 	parse_cmd_line_args()
+
+	# execute main Ising simulation
 	main()
 }
 
-# parse command-line arguments
+# Parse command-line arguments
 function parse_cmd_line_args(  i, s) {
 	for (i=1;i<ARGC;i++) {
 		split(ARGV[i],s,"=")
@@ -127,12 +138,14 @@ function parse_cmd_line_args(  i, s) {
 		else {
 			width = restart_width
 			sites = width*width
-			report_interval *= sites
+
+			if (report_interval_set) report_interval *= sites
+			else report_interval = 100*sites
 		}
 	}
 }
 
-# main function: execute Ising simulation
+# Main function: execute Ising simulation
 function main() {
 	# generate random starting configuration
 	if (restart_set == 0) {
@@ -163,7 +176,7 @@ function main() {
 	initialize_output()
 
 	# MAIN LOOP
-	while (sweeps < max_sweeps){
+	while (sweeps < max_sweeps) {
 		sweeps += t_step
 		report_flag++
 		metropolis_step()
@@ -181,7 +194,7 @@ function main() {
 	exit 0
 }
 
-# initialize spin configuration
+# Initialize spin configuration
 function initialize_lattice(  i) {
 	magnetization = 0
 	for (i=0;i<sites;i++) {
@@ -203,7 +216,7 @@ function initialize_lattice(  i) {
 	}
 }
 
-# load spin configuration from file
+# Load spin configuration from file
 function load_lattice(f,  x, s, i) {
 	tmp = -1
 
@@ -228,9 +241,19 @@ function load_lattice(f,  x, s, i) {
 
 		row++
 	}
+
+	# check that lattice is square
+	if (row != restart_width) {
+		print "Error: lattice isn't square. Aborting!"
+		exit 1
+	}
+	else if (row == 0) {
+		print "Error: configuration file is empty. Aborting!"
+		exit 1
+	}
 }
 
-# print current spin configuration to file
+# Print current spin configuration to file
 function save_lattice(  i) {
 	for (i=0;i<sites;i++) {
 		if (i == 0) {
@@ -244,7 +267,7 @@ function save_lattice(  i) {
 	close(restart_file)
 }
 
-# return one of the four neighbors of lattice site "s"
+# Return one of the four neighbors of lattice site "s"
 function get_neighbour(s, n,  x, y) {
 	y = int(s/width)
 	x = s - width*y
@@ -255,27 +278,27 @@ function get_neighbour(s, n,  x, y) {
 	if (n == 3) return x + width*((y + 1 + width)%width)
 }
 
-# compute and return the energy of lattice site "s"
+# Compute and return the energy of lattice site "s"
 function get_energy(s,  i, e) {
-	e += -h*lattice[s]
+	e -= h*lattice[s]
 	for (i=0;i<4;i++) {
-		e += -J*lattice[s]*lattice[get_neighbour(s,i)]
+		e -= J*lattice[s]*lattice[get_neighbour(s,i)]
 	}
 	return e
 }
 
-# compute and return the total lattice energy
+# Compute and return the total lattice energy
 function get_total_energy(  i, j, e) {
 	for (i=0;i<sites;i++) {
-		e += -h*lattice[i]
+		e -= h*lattice[i]
 		for (j=0;j<4;j++) {
-			e += -J*lattice[i]*lattice[get_neighbour(i,j)]
+			e -= J*lattice[i]*lattice[get_neighbour(i,j)]
 		}
 	}
 	return 0.5*e
 }
 
-# perform a Metropolis Monte Carlo trial spin flip
+# Perform a Metropolis Monte Carlo trial spin flip
 function metropolis_step() {
 	# choose random lattice site
 	site = int((sites+1)*rand())
@@ -292,24 +315,27 @@ function metropolis_step() {
 	# compute energy change
 	energy_change = final_energy - initial_energy
 
+	# reset acceptance flag
+	is_accepted = 0
+
 	# check if move is accepted
 	if (energy_change > 0) {
-		if (rand() < exp(-beta*energy_change)) {
-			total_energy += energy_change
-			magnetization += 2*lattice[site]
-			accepts++
-		}
-		else lattice[site] *= -1
+		if (rand() < exp(-beta*energy_change))
+			is_accepted = 1
 	}
-	else
-	{
+	else is_accepted = 1
+
+	# update energy and magnetization,
+	# reset spin if trial move failed
+	if (is_accepted == 1) {
 		total_energy += energy_change
 		magnetization += 2*lattice[site]
 		accepts++
 	}
+	else lattice[site] *= -1
 }
 
-# wipe existing log file and write headers to file and stdout
+# Wipe existing log file and write headers to file and stdout
 function initialize_output() {
 	printf("#------------------------------------\n") > log_file
 	printf("#%9s %9s %16s\n", "sweeps", "energy", "magnetization") >> log_file
@@ -319,7 +345,7 @@ function initialize_output() {
 	printf("#------------------------------------\n")
 }
 
-# write energy and magnetization to stdout/file and generate
+# Write energy and magnetization to stdout/file and generate
 # a postscript image of the current lattice configuration
 function report(f) {
 	printf("%9.4e %9.4f %16.4f\n",
@@ -331,7 +357,7 @@ function report(f) {
 	save_lattice()
 }
 
-# write current lattice configuration as a postscript
+# Write current spin configuration as a postscript
 function plot_lattice(f,  i) {
 	# work out scale factor
 	scale = 600/width
