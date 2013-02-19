@@ -41,7 +41,7 @@
 #			File name for logging.
 
 # Since there are no files to process everything is done within
-# the begin action. The order of operation is as follows:
+# the BEGIN action. The order of operation is as follows:
 #	1) initialize defaults
 #	2) parse any command-line arguments
 #	3) execute main Ising model simulation
