@@ -1,5 +1,5 @@
 #!/usr/bin/awk -f
-# ising.awk: a simple Ising model simulation in awk
+# ising.awk: a simple 2D Ising model simulation in awk
 
 # Copyright (C) 2013  Lester Hedges <lester.hedges+ising@gmail.com>
 #
