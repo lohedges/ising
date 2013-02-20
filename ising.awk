@@ -39,6 +39,9 @@
 #			Restart file name (for output).
 # l=, logfile=
 #			File name for logging.
+# wolff=
+#			Whether to use Wolff algorithm ("on" or "off")
+#			See http://en.wikipedia.org/wiki/Wolff_algorithm
 
 # Since there are no files to process everything is done within
 # the BEGIN action. The order of operation is as follows:
@@ -47,17 +50,18 @@
 #	3) execute main Ising model simulation
 BEGIN {
 	# set defaults
-	width=60
-	sites=width*width
-	temperature=2.269
-	beta=1/temperature
-	J=1
-	h=0
-	max_sweeps=1e4
-	initialize="random"
-	report_interval=100*sites
-	log_file="report.txt"
-	restart_file="restart.txt"
+	width = 60
+	sites = width*width
+	temperature = 2.269
+	beta = 1/temperature
+	J = 1
+	h = 0
+	max_sweeps = 1e4
+	initialize = "random"
+	report_interval = 100*sites
+	log_file = "report.txt"
+	restart_file = "restart.txt"
+	is_wolff = 0
 
 	# seed random number generator
 	srand()
@@ -109,6 +113,9 @@ function parse_cmd_line_args(  i, s) {
 		else if (s[1] == "l" || s[1] == "logfile") {
 			log_file = s[2]
 		}
+		else if ("wolff") {
+			if (s[2] == "on") is_wolff=1
+		}
 		else {
 			print "Error: unknown command line argument \""s[1]"\"."
 			exit 1
@@ -143,6 +150,9 @@ function parse_cmd_line_args(  i, s) {
 			else report_interval = 100*sites
 		}
 	}
+
+	# set link probability for is_wolff algorithm
+	if (is_wolff == 1) link_prob = 1.0 - exp(-2*beta)
 }
 
 # Main function: execute Ising simulation
@@ -158,6 +168,12 @@ function main() {
 	# incremental time step (in MC sweeps)
 	t_step = 1/sites
 
+	# rescale time for cluster moves
+	if (is_wolff) {
+		report_interval /= sites
+		t_step = 1
+	}
+
 	# print simulation info (parameter values, etc.)
 	printf("Starting Ising simulation...\n")
 	printf("width = %d\n", width)
@@ -170,7 +186,9 @@ function main() {
 	}
 	printf("logfile = %s\n", log_file)
 	printf("images = ./Config_*.ps\n")
-	printf("\nReporting every %d sweeps.\n\n", report_interval/sites)
+
+	printf("\nReporting every %d sweeps.\n", report_interval/sites)
+	if (is_wolff) print "Using Wolff algorithm."
 
 	# initialize output files and formatting
 	initialize_output()
@@ -179,11 +197,15 @@ function main() {
 	while (sweeps < max_sweeps) {
 		sweeps += t_step
 		report_flag++
-		metropolis_step()
+
+		if (is_wolff == 0) metropolis_step()
+		else wolff()
 
 		# write report log to file and stdout then generate
 		# a postscript of the current lattice configuration
 		if (report_flag == report_interval) {
+			# recompute energy and magnetization if using Wolff algorithm
+			if (is_wolff) total_energy = get_total_energy()
 			frame++
 			report(frame)
 			report_flag = 0
@@ -289,7 +311,11 @@ function get_energy(s,  i, e) {
 
 # Compute and return the total lattice energy
 function get_total_energy(  i, j, e) {
+	# reset magnetization
+	magnetization = 0
+
 	for (i=0;i<sites;i++) {
+		magnetization += lattice[i]
 		e -= h*lattice[i]
 		for (j=0;j<4;j++) {
 			e -= J*lattice[i]*lattice[get_neighbor(i,j)]
@@ -335,12 +361,51 @@ function metropolis_step() {
 	else lattice[site] *= -1
 }
 
+# Perform iteration of Wolff algorithm
+function wolff() {
+	# choose random lattice site
+	site = int((sites+1)*rand())
+
+	# store spin value
+	spin = lattice[site]
+
+	cluster_size = 0
+
+	# recursively flip cluster of spins
+	recursive_cluster_flp(site, spin)
+}
+
+# Recursively flip cluster of spins
+function recursive_cluster_flp(site, spin,  i, n) {
+	cluster_size++
+
+	# flip spin
+	lattice[site] *= -1
+
+	# make sure cluster isn't larger than lattice
+	if (cluster_size < sites) {
+		# check all neighbors of site
+		for (i=0;i<4;i++)
+		{
+			n = get_neighbor(site, i)
+
+			# check spin is in the same state
+			if (lattice[n] == spin) {
+				# add neigbor to cluster with linking probability
+				if (rand() < link_prob) {
+					recursive_cluster_flp(n, spin)
+				}
+			}
+		}
+	}
+}
+
 # Wipe existing log file and write headers to file and stdout
 function initialize_output() {
 	printf("#------------------------------------\n") > log_file
 	printf("#%9s %9s %16s\n", "sweeps", "energy", "magnetization") >> log_file
 	printf("#------------------------------------\n") >> log_file
-	printf("#------------------------------------\n")
+	printf("\n#------------------------------------\n")
 	printf("#%9s %9s %16s\n", "sweeps", "energy", "magnetization")
 	printf("#------------------------------------\n")
 }
