@@ -327,7 +327,7 @@ function get_total_energy(  i, j, e) {
 # Perform a Metropolis Monte Carlo trial spin flip
 function metropolis_step() {
 	# choose random lattice site
-	site = int((sites+1)*rand())
+	site = int(sites*rand())
 
 	# compute initial site energy
 	initial_energy = get_energy(site)
@@ -364,7 +364,7 @@ function metropolis_step() {
 # Perform iteration of Wolff algorithm
 function wolff() {
 	# choose random lattice site
-	site = int((sites+1)*rand())
+	site = int(sites*rand())
 
 	# store spin value
 	spin = lattice[site]
@@ -382,19 +382,16 @@ function recursive_cluster_flp(site, spin,  i, n) {
 	# flip spin
 	lattice[site] *= -1
 
-	# make sure cluster isn't larger than lattice
-	if (cluster_size < sites) {
-		# check all neighbors of site
-		for (i=0;i<4;i++)
-		{
-			n = get_neighbor(site, i)
+	# check all neighbors of site
+	for (i=0;i<4;i++)
+	{
+		n = get_neighbor(site, i)
 
-			# check spin is in the same state
-			if (lattice[n] == spin) {
-				# add neigbor to cluster with linking probability
-				if (rand() < link_prob) {
-					recursive_cluster_flp(n, spin)
-				}
+		# check spin is in the same state
+		if (lattice[n] == spin) {
+			# add neigbor to cluster with linking probability
+			if (rand() < link_prob) {
+				recursive_cluster_flp(n, spin)
 			}
 		}
 	}
