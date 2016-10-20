@@ -372,11 +372,11 @@ function wolff() {
     cluster_size = 0
 
     # recursively flip cluster of spins
-    recursive_cluster_flp(site, spin)
+    recursive_cluster_flip(site, spin)
 }
 
 # Recursively flip cluster of spins
-function recursive_cluster_flp(site, spin,  i, n) {
+function recursive_cluster_flip(site, spin,  i, n) {
     cluster_size++
 
     # flip spin
@@ -391,7 +391,7 @@ function recursive_cluster_flp(site, spin,  i, n) {
         if (lattice[n] == spin) {
             # add neigbor to cluster with linking probability
             if (rand() < link_prob) {
-                recursive_cluster_flp(n, spin)
+                recursive_cluster_flip(n, spin)
             }
         }
     }
